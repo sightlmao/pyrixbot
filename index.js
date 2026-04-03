@@ -1,5 +1,5 @@
 require('dotenv').config();
-const { Client, GatewayIntentBits, EmbedBuilder, SlashCommandBuilder, REST, Routes, Collection } = require('discord.js');
+const { Client, GatewayIntentBits, EmbedBuilder, SlashCommandBuilder, REST, Routes } = require('discord.js');
 
 const client = new Client({
   intents: [
@@ -11,11 +11,20 @@ const client = new Client({
 
 const BANNER_URL = 'https://media.discordapp.net/attachments/1489588206264651926/1489588231967215726/pyrix_bot_banner_1.png?ex=69d0f6a5&is=69cfa525&hm=aef704e99e0fb06963e0553ba9443e94ac295681d348e999d1faf882d8004f2b&=&format=webp&quality=lossless';
 
+// --- PvP rank definitions (name must match EXACT Discord role name) ---
+const PVP_RANKS = [
+  { name: 'Diamond',  kills: 500, color: '#00F5FF' },
+  { name: 'Platinum', kills: 300, color: '#B0C4DE' },
+  { name: 'Gold',     kills: 150, color: '#FFD700' },
+  { name: 'Silver',   kills: 50,  color: '#C0C0C0' },
+  { name: 'Bronze',   kills: 0,   color: '#CD7F32' },
+];
+
 // --- Fake in-memory stats (replace with a real DB later) ---
 const stats = {
   'ExamplePlayer1': { kills: 142, deaths: 38, duels: 24, duelWins: 18 },
   'ExamplePlayer2': { kills: 98,  deaths: 51, duels: 15, duelWins: 9  },
-  'ExamplePlayer3': { kills: 203, deaths: 72, duels: 41, duelWins: 30 },
+  'ExamplePlayer3': { kills: 503, deaths: 72, duels: 41, duelWins: 30 },
 };
 
 function getKDR(kills, deaths) {
@@ -23,14 +32,31 @@ function getKDR(kills, deaths) {
   return (kills / deaths).toFixed(2);
 }
 
-function getRank(kills) {
-  if (kills >= 200) return { name: 'Diamond', color: '#5DCAA5' };
-  if (kills >= 100) return { name: 'Gold',    color: '#EF9F27' };
-  if (kills >= 50)  return { name: 'Silver',  color: '#D3D1C7' };
-  return                   { name: 'Bronze',  color: '#D85A30' };
+function getRankForKills(kills) {
+  return PVP_RANKS.find(r => kills >= r.kills) || PVP_RANKS[PVP_RANKS.length - 1];
 }
 
-// --- Slash commands definition ---
+// --- Auto-assign PvP rank role to a guild member ---
+async function assignPvpRank(guild, member, kills) {
+  const correctRank = getRankForKills(kills);
+  const rankRoleNames = PVP_RANKS.map(r => r.name);
+
+  for (const roleName of rankRoleNames) {
+    const role = guild.roles.cache.find(r => r.name === roleName);
+    if (role && member.roles.cache.has(role.id)) {
+      await member.roles.remove(role).catch(() => {});
+    }
+  }
+
+  const newRole = guild.roles.cache.find(r => r.name === correctRank.name);
+  if (newRole) {
+    await member.roles.add(newRole).catch(() => {});
+    return correctRank;
+  }
+  return null;
+}
+
+// --- Slash commands ---
 const commands = [
   new SlashCommandBuilder()
     .setName('stats')
@@ -48,6 +74,15 @@ const commands = [
   new SlashCommandBuilder()
     .setName('ping')
     .setDescription('Check if PyrixBot is alive'),
+
+  new SlashCommandBuilder()
+    .setName('rankup')
+    .setDescription('Check and update your PvP rank')
+    .addStringOption(opt =>
+      opt.setName('player')
+        .setDescription('Minecraft username')
+        .setRequired(false)
+    ),
 ].map(cmd => cmd.toJSON());
 
 // --- Register slash commands on ready ---
@@ -66,8 +101,14 @@ client.once('ready', async () => {
   }
 });
 
-// --- Welcome new members ---
+// --- Welcome new members & assign Bronze + New Member roles ---
 client.on('guildMemberAdd', async (member) => {
+  const bronzeRole = member.guild.roles.cache.find(r => r.name === 'Bronze');
+  if (bronzeRole) await member.roles.add(bronzeRole).catch(() => {});
+
+  const newMemberRole = member.guild.roles.cache.find(r => r.name === 'New Member');
+  if (newMemberRole) await member.roles.add(newMemberRole).catch(() => {});
+
   const channelId = process.env.WELCOME_CHANNEL_ID;
   const channel = member.guild.channels.cache.get(channelId);
   if (!channel) return;
@@ -80,11 +121,12 @@ client.on('guildMemberAdd', async (member) => {
       `Read the rules in **#rules**, grab your roles in **#roles**, and jump into the action.`
     )
     .addFields(
-      { name: 'FFA',          value: 'Free for all — no teams, no mercy.',     inline: true },
-      { name: 'Duels',        value: '1v1 ranked fights. Prove your skill.',    inline: true },
-      { name: 'SMP',          value: 'Survive and build together.',             inline: true },
-      { name: 'Build Submit', value: 'Get your build added to the map.',        inline: true },
+      { name: 'FFA',          value: 'Free for all — no teams, no mercy.',  inline: true },
+      { name: 'Duels',        value: '1v1 ranked fights. Prove your skill.', inline: true },
+      { name: 'SMP',          value: 'Survive and build together.',          inline: true },
+      { name: 'Build Submit', value: 'Get your build added to the map.',     inline: true },
     )
+    .setImage(BANNER_URL)
     .setFooter({ text: 'Pyrix Universe • compete clean, win clean.' })
     .setTimestamp();
 
@@ -103,6 +145,7 @@ client.on('interactionCreate', async (interaction) => {
           .setColor('#E24B4A')
           .setTitle('PyrixBot is online')
           .setDescription(`Latency: **${client.ws.ping}ms**`)
+          .setImage(BANNER_URL)
       ]
     });
   }
@@ -124,7 +167,7 @@ client.on('interactionCreate', async (interaction) => {
       return;
     }
 
-    const rank = getRank(data.kills);
+    const rank = getRankForKills(data.kills);
     const winRate = data.duels > 0 ? ((data.duelWins / data.duels) * 100).toFixed(1) : '0.0';
 
     const embed = new EmbedBuilder()
@@ -139,9 +182,45 @@ client.on('interactionCreate', async (interaction) => {
         { name: 'Win Rate', value: `${winRate}%`,                     inline: true },
       )
       .setFooter({ text: 'Pyrix Universe' })
+      .setImage(BANNER_URL)
       .setTimestamp();
 
     await interaction.reply({ embeds: [embed] });
+  }
+
+  // /rankup
+  if (interaction.commandName === 'rankup') {
+    const playerName = interaction.options.getString('player') || interaction.user.username;
+    const data = stats[playerName];
+
+    if (!data) {
+      await interaction.reply({
+        embeds: [
+          new EmbedBuilder()
+            .setColor('#A32D2D')
+            .setDescription(`No stats found for **${playerName}**. Make sure you've played on the server!`)
+        ],
+        ephemeral: true
+      });
+      return;
+    }
+
+    await interaction.deferReply();
+    const member = interaction.guild.members.cache.get(interaction.user.id);
+    const newRank = await assignPvpRank(interaction.guild, member, data.kills);
+
+    if (newRank) {
+      const embed = new EmbedBuilder()
+        .setColor(newRank.color)
+        .setTitle('Rank Updated!')
+        .setDescription(`${interaction.user} your rank has been set to **${newRank.name}** based on **${data.kills} kills**!`)
+        .setImage(BANNER_URL)
+        .setFooter({ text: 'Pyrix Universe' })
+        .setTimestamp();
+      await interaction.editReply({ embeds: [embed] });
+    } else {
+      await interaction.editReply({ content: 'Could not find the rank role — make sure the role names match exactly in Discord!' });
+    }
   }
 
   // /leaderboard
@@ -152,8 +231,9 @@ client.on('interactionCreate', async (interaction) => {
 
     const medals = ['1.', '2.', '3.'];
     const rows = sorted.map(([name, data], i) => {
+      const rank = getRankForKills(data.kills);
       const prefix = medals[i] || `${i + 1}.`;
-      return `${prefix} **${name}** — ${data.kills} kills (KDR: ${getKDR(data.kills, data.deaths)})`;
+      return `${prefix} **${name}** — ${data.kills} kills | ${rank.name} (KDR: ${getKDR(data.kills, data.deaths)})`;
     }).join('\n');
 
     const embed = new EmbedBuilder()
@@ -161,6 +241,7 @@ client.on('interactionCreate', async (interaction) => {
       .setTitle('Pyrix Universe — Kill Leaderboard')
       .setDescription(rows)
       .setFooter({ text: 'Updated live • Pyrix Universe' })
+      .setImage(BANNER_URL)
       .setTimestamp();
 
     await interaction.reply({ embeds: [embed] });
