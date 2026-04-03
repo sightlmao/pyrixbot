@@ -9,7 +9,7 @@ const client = new Client({
   ]
 });
 
-const BANNER_URL = 'https://cdn.discordapp.com/attachments/1489588206264651926/1489588231967215726/pyrix_bot_banner_1.png?ex=69d0f6a5&is=69cfa525&hm=aef704e99e0fb06963e0553ba9443e94ac295681d348e999d1faf882d8004f2b&';
+const BANNER_URL = 'https://media.discordapp.net/attachments/1489588206264651926/1489588231967215726/pyrix_bot_banner_1.png?ex=69d0f6a5&is=69cfa525&hm=aef704e99e0fb06963e0553ba9443e94ac295681d348e999d1faf882d8004f2b&=&format=webp&quality=lossless';
 
 // --- Fake in-memory stats (replace with a real DB later) ---
 const stats = {
