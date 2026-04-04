@@ -9,8 +9,6 @@ const client = new Client({
   ]
 });
 
-const BANNER_URL = 'https://media.discordapp.net/attachments/1489588206264651926/1489588231967215726/pyrix_bot_banner_1.png?ex=69d0f6a5&is=69cfa525&hm=aef704e99e0fb06963e0553ba9443e94ac295681d348e999d1faf882d8004f2b&=&format=webp&quality=lossless';
-
 // --- PvP rank definitions (name must match EXACT Discord role name) ---
 const PVP_RANKS = [
   { name: 'Diamond',  kills: 500, color: '#00F5FF' },
@@ -113,7 +111,6 @@ client.on('interactionCreate', async (interaction) => {
           .setColor('#E24B4A')
           .setTitle('PyrixBot is online')
           .setDescription(`Latency: **${client.ws.ping}ms**`)
-          .setImage(BANNER_URL)
       ]
     });
   }
@@ -150,7 +147,6 @@ client.on('interactionCreate', async (interaction) => {
         { name: 'Win Rate', value: `${winRate}%`,                     inline: true },
       )
       .setFooter({ text: 'Pyrix Universe' })
-      .setImage(BANNER_URL)
       .setTimestamp();
 
     await interaction.reply({ embeds: [embed] });
@@ -182,7 +178,6 @@ client.on('interactionCreate', async (interaction) => {
         .setColor(newRank.color)
         .setTitle('Rank Updated!')
         .setDescription(`${interaction.user} your rank has been set to **${newRank.name}** based on **${data.kills} kills**!`)
-        .setImage(BANNER_URL)
         .setFooter({ text: 'Pyrix Universe' })
         .setTimestamp();
       await interaction.editReply({ embeds: [embed] });
@@ -209,7 +204,6 @@ client.on('interactionCreate', async (interaction) => {
       .setTitle('Pyrix Universe — Kill Leaderboard')
       .setDescription(rows)
       .setFooter({ text: 'Updated live • Pyrix Universe' })
-      .setImage(BANNER_URL)
       .setTimestamp();
 
     await interaction.reply({ embeds: [embed] });
