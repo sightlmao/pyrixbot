@@ -101,38 +101,6 @@ client.once('ready', async () => {
   }
 });
 
-// --- Welcome new members & assign Bronze + New Member roles ---
-client.on('guildMemberAdd', async (member) => {
-  const bronzeRole = member.guild.roles.cache.find(r => r.name === 'Bronze');
-  if (bronzeRole) await member.roles.add(bronzeRole).catch(() => {});
-
-  const newMemberRole = member.guild.roles.cache.find(r => r.name === 'New Member');
-  if (newMemberRole) await member.roles.add(newMemberRole).catch(() => {});
-
-  const channelId = process.env.WELCOME_CHANNEL_ID;
-  const channel = member.guild.channels.cache.get(channelId);
-  if (!channel) return;
-
-  const embed = new EmbedBuilder()
-    .setColor('#E24B4A')
-    .setTitle('Welcome to Pyrix Universe!')
-    .setDescription(
-      `Hey ${member}, glad you're here!\n\n` +
-      `Read the rules in **#rules**, grab your roles in **#roles**, and jump into the action.`
-    )
-    .addFields(
-      { name: 'FFA',          value: 'Free for all — no teams, no mercy.',  inline: true },
-      { name: 'Duels',        value: '1v1 ranked fights. Prove your skill.', inline: true },
-      { name: 'SMP',          value: 'Survive and build together.',          inline: true },
-      { name: 'Build Submit', value: 'Get your build added to the map.',     inline: true },
-    )
-    .setImage(BANNER_URL)
-    .setFooter({ text: 'Pyrix Universe • compete clean, win clean.' })
-    .setTimestamp();
-
-  channel.send({ content: `${member}`, embeds: [embed] });
-});
-
 // --- Handle slash commands ---
 client.on('interactionCreate', async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
